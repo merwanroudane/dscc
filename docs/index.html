@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dscc — Dynamic Spectral Conditional Correlations in Python</title>
+<meta name="description" content="Python implementation of the DSCC model of Abadir and Rockinger (2026): estimation, forecasting, elliptope coverage, DCC baseline and minimum-variance portfolios.">
+<meta name="author" content="Dr Merwan Roudane">
+<meta property="og:title" content="dscc">
+<meta property="og:description" content="Dynamic Spectral Conditional Correlations in Python (Abadir and Rockinger, 2026).">
+<meta property="og:image" content="https://merwanroudane.github.io/dscc/assets/fig1_elliptope.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<link rel="stylesheet" href="assets/style.css?v=0.1.0-2026-11-05">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <span class="brand">dscc <span class="by">by Dr Merwan Roudane</span></span>
+  <nav class="nav">
+    <a href="#install">Install</a><a href="#theory">Theory</a><a class="opt" href="#api">API</a>
+    <a href="#example">Example</a><a class="opt" href="#fidelity">Fidelity</a><a class="opt" href="#refs">References</a>
+    <a href="https://github.com/merwanroudane/dscc">GitHub</a><a href="https://pypi.org/project/dscc/">PyPI</a>
+  </nav>
+</div></header>
+
+<div class="hero"><div class="wrap">
+  <div class="pills"><span class="pill">v0.1.0</span><span class="pill">MIT licence</span><span class="pill">Python ≥ 3.9</span></div>
+  <h1>Dynamic Spectral Conditional Correlations</h1>
+  <p class="lead">Estimation, forecasting and evaluation of the DSCC model, a multivariate volatility model whose correlation matrices are positive definite by construction and span the whole space of correlation matrices.</p>
+  <p class="dev">Developed by <a href="https://github.com/merwanroudane"><b>Dr Merwan Roudane</b></a> · <a href="mailto:merwanroudane920@gmail.com">merwanroudane920@gmail.com</a></p>
+  <p class="cite">Python implementation of Abadir, K. M. and M. Rockinger (2026), <em>Econometrics Journal</em> · Abadir, K. M. (2023), <em>Econometrics Journal</em> 26, 88–104</p>
+  <div class="install"><code>pip install "dscc[fast]"</code><button class="copy" data-copy='pip install "dscc[fast]"'>Copy</button></div>
+  <div class="btns">
+    <a class="btn primary" href="https://github.com/merwanroudane/dscc">GitHub</a>
+    <a class="btn ghost" href="https://pypi.org/project/dscc/">PyPI</a>
+    <a class="btn ghost" href="https://doi.org/10.1093/ectj/utag017">Read the paper</a>
+  </div>
+</div></div>
+
+<main class="wrap">
+<section id="what">
+  <span class="eyebrow e-indigo">What it does</span>
+  <h2>One package for the whole paper</h2>
+  <div class="grid">
+    <div class="card t-indigo feature"><h3>Estimation</h3><p>DSCC-λ<sub>garch</sub> and DSCC-λ<sub>egarch</sub> by maximum likelihood (2.13), with in-sample δ̂<sub>t</sub>, multi-start optimisation and standard errors.</p></div>
+    <div class="card t-teal feature"><h3>Forecasting</h3><p>Multistep forecasts of Σ<sub>T+h</sub> (Section 4), including the "-av" variant, in the paper's form or exactly as in the authors' MATLAB code.</p></div>
+    <div class="card t-amber feature"><h3>Span benchmark</h3><p>Exact elliptope volumes, slice-by-slice convex-hull coverage and DCC simulation: Table 1 and Figures 1–3.</p></div>
+    <div class="card t-sky feature"><h3>Portfolios</h3><p>Minimum-variance backtests against DCC, the sample covariance and 1/N, with AV/SD/IR, turnover, HAC tests and Tables 2–6.</p></div>
+  </div>
+</section>
+
+<section id="install">
+  <span class="eyebrow e-sky">Installation</span>
+  <h2>Install in one line</h2>
+<pre><code class="language-bash">pip install dscc                  # core: numpy, scipy, pandas, matplotlib
+pip install "dscc[fast]"          # + numba, about 4x faster likelihood
+pip install git+https://github.com/merwanroudane/dscc.git   # development version</code></pre>
+  <div class="note">Never used Python? The <a href="https://github.com/merwanroudane/dscc#2-start-from-absolutely-nothing">README's step-by-step guide</a> takes you from installing Anaconda to your first estimate in fifteen minutes.</div>
+</section>
+
+<section id="theory">
+  <span class="eyebrow e-indigo">Theory</span>
+  <h2>The model</h2>
+  <div class="card theory">
+    <h3>Explicit minimal representation</h3>
+    <p>Abadir (2023, Prop. 2.1) shows that every positive-definite matrix can be written as</p>
+    $$\Sigma_t = P^{\delta_t}\, e^{\Upsilon_t}\, \Lambda_t\, e^{-\Upsilon_t}\, P^{\delta_t},\qquad \Lambda_t=\mathrm{diag}(\lambda_{1t},\dots,\lambda_{kt}),\ \lambda_{it}>0,$$
+    <p>where \(\Upsilon_t\) is skew-symmetric with \(k(k-1)/2\) <em>unrestricted</em> elements, \(\delta_t\in\{0,1\}\), and \(P\) swaps the first two variates. The only constraints are the \(k\) signs \(\lambda_{it}>0\).</p>
+    <h3>Dynamics</h3>
+    <p>With \(z_t=e^{-\Upsilon_t}P^{\delta_t}x_t\), the eigenvalues follow a GARCH(1,1) (2.5) or an EGARCH(1,1) (2.6):</p>
+    $$\Lambda_t=D_0+D_{11}\Lambda_{t-1}+D_{21}\,\mathrm{dg}(z_{t-1}z_{t-1}'),\qquad \log\Lambda_t=D_0+D_{11}\log\Lambda_{t-1}+D_{21}\,\mathrm{diag}\,g(\Lambda_{t-1}^{-1/2}z_{t-1})',$$
+    <p>with \(g_i(v)=|v_i-c_i|-a_i(v_i-c_i)\). The rotation is driven by the data through \(x_tx_t'=Q_t\,\mathrm{diag}(x_t'x_t,O)Q_t'\) and \(\Xi_t=\log Q_t\) (2.10)–(2.11):</p>
+    $$\upsilon_{ijt}=(1-\alpha_{ij})\mu_{ij}+\alpha_{ij}\upsilon_{ij,t-1}+\beta_{ij}\xi_{ij,t-1}.\tag{2.9}$$
+    <h3>Likelihood and correlations</h3>
+    $$\ell(\theta,\{\delta_t\})=\sum_{t=1}^{T}\Big(\log f_\varepsilon(\Sigma_t^{-1/2}x_t)-\tfrac12\sum_{i=1}^{k}\log\lambda_{it}\Big),\qquad \Omega_t=\mathrm{dg}(\Sigma_t)^{-1/2}\Sigma_t\,\mathrm{dg}(\Sigma_t)^{-1/2}.$$
+    <p>Each \(\delta_t\) maximises its own summand, which takes \(2T\) evaluations instead of \(2^T\). Forecasts weight the two \(\delta\)-branches by \(\hat\psi=\Pr(\delta=0)\) (Section 4).</p>
+    <h3>The span benchmark</h3>
+    <p>For \(k=3\), the elliptope \(E_3\) has volume \(V_3=\pi^2/2\) (3.2), and its section at a fixed correlation \(c\) has area \(\pi\sqrt{1-c^2}\). DSCC attains the full span by construction. Proposition 2.1 of [AR26] shows that DCC cannot.</p>
+  </div>
+  <h3>Step → equation map</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Code</th><th>Paper</th><th>What it computes</th></tr></thead>
+    <tbody>
+      <tr><td><code>compose_sigma</code>, <code>decompose_sigma</code></td><td>[A23] Prop. 2.1; [AR26] (2.1)</td><td>Σ = P<sup>δ</sup>e<sup>Υ</sup>Λe<sup>−Υ</sup>P<sup>δ</sup></td></tr>
+      <tr><td><code>orthogonal_from_data</code>, <code>xi_from_data</code></td><td>(2.10)–(2.11)</td><td>Q<sub>t</sub> with |Q<sub>t</sub>| = +1 and ξ<sub>t</sub> = vec(log Q<sub>t</sub>)</td></tr>
+      <tr><td><code>_filters.ups_path</code>, <code>expm_skew_batch</code></td><td>(2.9); [A23] Lemma 2.1</td><td>Υ<sub>t</sub> and e<sup>Υ<sub>t</sub></sup></td></tr>
+      <tr><td><code>dsh_filter(dynamics="garch")</code></td><td>(2.4)–(2.5)</td><td>Λ<sub>t</sub>, z<sub>t</sub></td></tr>
+      <tr><td><code>dsh_filter(dynamics="egarch")</code>, <code>g_abs</code></td><td>(2.6)–(2.7)</td><td>log Λ<sub>t</sub></td></tr>
+      <tr><td><code>DSCC.loglike</code>, <code>DSCC.fit</code></td><td>(2.13); [A23] (3.11), (5.1)</td><td>likelihood, δ̂<sub>t</sub>, θ̂</td></tr>
+      <tr><td><code>DSCCResults.correlation</code></td><td>(2.14)</td><td>Ω<sub>t</sub></td></tr>
+      <tr><td><code>DSCCResults.forecast</code></td><td>Section 4, (4.1)</td><td>Σ<sub>T+h</sub>, h = 1…H</td></tr>
+      <tr><td><code>elliptope.elliptope_volume</code>, <code>slice_coverage</code></td><td>(3.1)–(3.2), Table 1</td><td>span benchmark</td></tr>
+      <tr><td><code>portfolio.*</code>, <code>rolling_backtest</code></td><td>Section 5, (5.2)–(5.3)</td><td>Tables 2–6</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="api">
+  <span class="eyebrow e-indigo">API</span>
+  <h2>Syntax reference</h2>
+  <div class="card t-indigo">
+<pre><code class="language-python">DSCC(data, dynamics="garch", demean=True, complement="householder", xi=None)
+DSCC.fit(start=None, n_starts=1, seed=0, method="SLSQP", maxiter=500, se=True, polish=True)
+DSCCResults.forecast(H=21, mode="paper", init="last")</code></pre>
+    <div class="tw"><table>
+      <thead><tr><th>Argument</th><th>Default</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>dynamics</code></td><td><code>"garch"</code></td><td>eigenvalue dynamics, (2.5) or (2.6)–(2.7)</td></tr>
+        <tr><td><code>complement</code></td><td><code>"householder"</code></td><td>orthogonal complement Q<sub>2t</sub> in (2.10); irrelevant for k = 2</td></tr>
+        <tr><td><code>xi</code></td><td><code>None</code></td><td>precomputed ξ<sub>t</sub> (2.11), e.g. the authors' MATLAB series</td></tr>
+        <tr><td><code>n_starts</code></td><td><code>1</code></td><td>number of starts; §5.5 of the paper uses 10</td></tr>
+        <tr><td><code>se</code></td><td><code>True</code></td><td>profile-likelihood standard errors, δ<sub>t</sub> fixed at its MLE</td></tr>
+        <tr><td><code>mode</code></td><td><code>"paper"</code></td><td><code>"replication"</code> reproduces the authors' forecast code</td></tr>
+        <tr><td><code>init</code></td><td><code>"last"</code></td><td><code>"average"</code> is the "-av" variant</td></tr>
+      </tbody></table></div>
+    <p>Results: <code>.params .bse .pvalues .loglik .aic .bic .delta .psi .lam .ups .sigma() .correlation() .std_resid() .summary() .to_latex() .to_markdown() .plot_correlations() .plot_eigenvalues()</code>. The full reference is in the <a href="https://github.com/merwanroudane/dscc#6-full-syntax-reference">README</a>.</p>
+  </div>
+  <div class="grid">
+    <div class="card t-amber"><h3>dscc.elliptope</h3><p><code>elliptope_volume</code>, <code>ellipse_slice_area</code>, <code>slab_projection_area</code>, <code>simulate_dcc</code>, <code>slice_coverage</code>, <code>coverage_table</code></p></div>
+    <div class="card t-teal"><h3>dscc.portfolio</h3><p><code>gmv_weights</code>, <code>performance</code>, <code>turnover_leverage</code>, <code>hac_mean_test</code>, <code>pairwise_tests</code>, <code>covariance_summaries</code></p></div>
+    <div class="card t-sky"><h3>Backtest and DCC</h3><p><code>rolling_backtest</code>, <code>DSCCForecaster</code>, <code>DCCForecaster</code>, <code>SampleCovForecaster</code>, <code>EqualWeight</code>, <code>DCC</code></p></div>
+  </div>
+</section>
+
+<section id="quick">
+  <span class="eyebrow e-teal">Quick start</span>
+  <h2>First estimate in 60 seconds</h2>
+<pre><code class="language-python">import dscc
+ff = dscc.datasets.load_ff5_daily(end="2022-03-31")       # downloaded once, then cached
+data = ff[["Mkt-RF", "HML"]].iloc[-1000:]
+res = dscc.DSCC(data, dynamics="egarch").fit(n_starts=3, seed=1)
+print(res.summary())
+fc = res.forecast(H=21, init="average")
+print(dscc.gmv_weights(fc.mean_sigma))</code></pre>
+<pre class="out"><code class="language-plaintext">==============================================================================
+           Dynamic Spectral Conditional Correlation -- ML estimates           
+==============================================================================
+Model:            DSCC-egarch (2.6)     Log-likelihood:              -2508.149
+Variables (k):    2                     AIC:                          5042.297
+Observations (T): 1000                  BIC:                          5106.085
+Q2t complement:   householder           Converged:                         yes
+------------------------------------------------------------------------------
+                                coef   std err        t    P&gt;|t|  [0.025  0.975]
+------------------------------------------------------------------------------
+Eigenvalue dynamics, Lambda_t
+  D0[Mkt-RF]                 -0.2204    0.0562   -3.921    0.000  -0.331  -0.110 ***
+  D0[HML]                    -0.1563    0.0201   -7.793    0.000  -0.196  -0.117 ***
+  D11[Mkt-RF]                 0.9609    0.0179   53.774    0.000   0.926   0.996 ***
+  D11[HML]                    0.9786    0.0068  143.392    0.000   0.965   0.992 ***
+  D21[Mkt-RF]                 0.2348    0.0512    4.586    0.000   0.134   0.335 ***
+  D21[HML]                    0.1853    0.0237    7.813    0.000   0.139   0.232 ***
+Skew-symmetric dynamics, Upsilon_t (2.9)
+  mu[Mkt-RF,HML]              1.6690    0.0134  124.989    0.000   1.643   1.695 ***
+  alpha[Mkt-RF,HML]           0.9293    0.0135   68.658    0.000   0.903   0.956 ***
+  beta[Mkt-RF,HML]           -0.0201    0.0027   -7.441    0.000  -0.025  -0.015 ***
+Asymmetry function g (2.7)
+  a[Mkt-RF]                  -0.2265    0.0959   -2.362    0.018  -0.414  -0.039 **
+  a[HML]                      0.2479    0.1172    2.114    0.034   0.018   0.478 **
+  c[Mkt-RF]                   0.0562    0.0321    1.751    0.080  -0.007   0.119 *
+  c[HML]                      0.2140    0.1275    1.678    0.093  -0.036   0.464 *
+------------------------------------------------------------------------------
+Permutation component delta_t (Proposition 2.1, eq. 2.13)
+  share of t with delta_t = 1:   0.5095      psi = Pr(delta = 0):   0.4905
+==============================================================================
+Notes: *** p&lt;0.01, ** p&lt;0.05, * p&lt;0.10. Standard errors from the numerical Hessian
+of the profile log-likelihood with delta_t held at its MLE; &#x27;--&#x27; = not available
+(parameter on a bound, or non-positive local curvature). Gaussian innovations.
+
+Forecast correlation, average over the next 21 days: -0.471
+Minimum-variance weights: [0.508 0.492]</code></pre>
+</section>
+
+<section id="example">
+  <span class="eyebrow e-teal">Application</span>
+  <h2>The paper on real data: the Fama–French five factors</h2>
+  <p>This section reproduces the whole paper on the five daily Fama–French factors (Mkt-RF, SMB, HML, RMW, CMA), 2 January 1980 to 31 March 2022, in percent. These are the factors whose covariance matrix Abadir and Rockinger model with DSCC in Section 5. The source is the Kenneth R. French Data Library. Every number below was printed by <code>examples/ff5_dscc_example.py</code>.</p>
+<h3>Step 1 — estimate on the paper's first five-year window (1,260 days)</h3>
+<pre><code class="language-python">ff = dscc.datasets.load_ff5_daily(start=&quot;1980-01-02&quot;, end=&quot;2022-03-31&quot;)
+factors = ff[[&quot;Mkt-RF&quot;, &quot;SMB&quot;, &quot;HML&quot;, &quot;RMW&quot;, &quot;CMA&quot;]]
+res = dscc.DSCC(factors.iloc[:1260], dynamics=&quot;egarch&quot;).fit()
+print(res.summary())</code></pre>
+<pre class="out"><code class="language-plaintext">==============================================================================
+           Dynamic Spectral Conditional Correlation -- ML estimates           
+==============================================================================
+Model:            DSCC-egarch (2.6)     Log-likelihood:              -1802.333
+Variables (k):    5                     AIC:                          3714.666
+Observations (T): 1260                  BIC:                          3997.260
+Q2t complement:   householder           Converged:                         yes
+------------------------------------------------------------------------------
+                                coef   std err        t    P&gt;|t|  [0.025  0.975]
+------------------------------------------------------------------------------
+Eigenvalue dynamics, Lambda_t
+  D0[Mkt-RF]                 -1.4130        --       --       --      --      -- 
+  D0[SMB]                    -0.1600    0.0474   -3.380    0.001  -0.253  -0.067 ***
+  D0[HML]                    -0.3902    0.0510   -7.655    0.000  -0.490  -0.290 ***
+  D0[RMW]                    -0.8279    0.3021   -2.740    0.006  -1.420  -0.236 ***
+  D0[CMA]                    -0.5587    0.1974   -2.830    0.005  -0.946  -0.172 ***
+  D11[Mkt-RF]                 0.6012        --       --       --      --      -- 
+  D11[SMB]                    0.9664    0.0195   49.438    0.000   0.928   1.005 ***
+  D11[HML]                    0.9571    0.0124   77.356    0.000   0.933   0.981 ***
+  D11[RMW]                    0.7231    0.1342    5.387    0.000   0.460   0.986 ***
+  D11[CMA]                    0.8927    0.0496   17.999    0.000   0.796   0.990 ***
+  D21[Mkt-RF]                -0.1090        --       --       --      --      -- 
+  D21[SMB]                    0.1947    0.0579    3.361    0.001   0.081   0.308 ***
+  D21[HML]                    0.3699    0.0436    8.488    0.000   0.285   0.455 ***
+  D21[RMW]                    0.3623    0.0826    4.386    0.000   0.200   0.524 ***
+  D21[CMA]                    0.2518    0.0523    4.817    0.000   0.149   0.354 ***
+Skew-symmetric dynamics, Upsilon_t (2.9)
+  mu[Mkt-RF,SMB]             -0.5162    0.0225  -22.928    0.000  -0.560  -0.472 ***
+  mu[Mkt-RF,HML]             -0.2744    0.0396   -6.929    0.000  -0.352  -0.197 ***
+  mu[Mkt-RF,RMW]             -0.7496    0.0258  -29.049    0.000  -0.800  -0.699 ***
+  mu[Mkt-RF,CMA]             -1.6047    0.0495  -32.409    0.000  -1.702  -1.508 ***
+  mu[SMB,HML]                -0.9602    0.0199  -48.324    0.000  -0.999  -0.921 ***
+  mu[SMB,RMW]                -0.0089    0.0256   -0.348    0.728  -0.059   0.041 
+  mu[SMB,CMA]                -0.8815    0.0279  -31.627    0.000  -0.936  -0.827 ***
+  mu[HML,RMW]                -1.1548    0.0292  -39.580    0.000  -1.212  -1.098 ***
+  mu[HML,CMA]                -0.9351    0.0249  -37.616    0.000  -0.984  -0.886 ***
+  mu[RMW,CMA]                -0.3858    0.0350  -11.009    0.000  -0.455  -0.317 ***
+  alpha[Mkt-RF,SMB]          -0.4623    0.2062   -2.242    0.025  -0.867  -0.058 **
+  alpha[Mkt-RF,HML]           0.0001    0.5820    0.000    1.000  -1.141   1.141 
+  alpha[Mkt-RF,RMW]          -0.4154    0.1784   -2.329    0.020  -0.765  -0.066 **
+  alpha[Mkt-RF,CMA]           0.6860    0.0434   15.821    0.000   0.601   0.771 ***
+  alpha[SMB,HML]             -0.1210    1.0860   -0.111    0.911  -2.250   2.008 
+  alpha[SMB,RMW]             -0.9552    0.1851   -5.159    0.000  -1.318  -0.592 ***
+  alpha[SMB,CMA]             -0.4706    0.3439   -1.369    0.171  -1.145   0.203 
+  alpha[HML,RMW]              0.4461    0.7242    0.616    0.538  -0.973   1.866 
+  alpha[HML,CMA]             -0.8047        --       --       --      --      -- 
+  alpha[RMW,CMA]             -0.3687    0.4410   -0.836    0.403  -1.233   0.496 
+  beta[Mkt-RF,SMB]            0.0290    0.0149    1.953    0.051  -0.000   0.058 *
+  beta[Mkt-RF,HML]            0.0374    0.0378    0.990    0.322  -0.037   0.112 
+  beta[Mkt-RF,RMW]            0.1659    0.0444    3.737    0.000   0.079   0.253 ***
+  beta[Mkt-RF,CMA]            0.0211    0.0034    6.281    0.000   0.015   0.028 ***
+  beta[SMB,HML]               0.5981    0.0000431997775654346.438    0.000   0.598   0.598 ***
+  beta[SMB,RMW]               2.7256        --       --       --      --      -- 
+  beta[SMB,CMA]              -0.0088    0.0120   -0.731    0.465  -0.032   0.015 
+  beta[HML,RMW]               3.2896    0.000010511909.543    0.000   3.290   3.290 ***
+  beta[HML,CMA]              -0.0369    0.0094   -3.915    0.000  -0.055  -0.018 ***
+  beta[RMW,CMA]              -0.0342    0.0579   -0.591    0.554  -0.148   0.079 
+Asymmetry function g (2.7)
+  a[Mkt-RF]                  -0.8588        --       --       --      --      -- 
+  a[SMB]                     -0.1531    0.0761   -2.013    0.044  -0.302  -0.004 **
+  a[HML]                      0.0597    0.1054    0.566    0.571  -0.147   0.266 
+  a[RMW]                      0.3950    0.2334    1.692    0.091  -0.062   0.852 *
+  a[CMA]                     -0.1867    0.1373   -1.360    0.174  -0.456   0.082 
+  c[Mkt-RF]                   2.2843    1.4844    1.539    0.124  -0.625   5.194 
+  c[SMB]                     -0.0722    0.0189   -3.812    0.000  -0.109  -0.035 ***
+  c[HML]                     -0.2639    0.1140   -2.315    0.021  -0.487  -0.041 **
+  c[RMW]                     -0.0768    0.2393   -0.321    0.748  -0.546   0.392 
+  c[CMA]                      0.2087    0.1375    1.517    0.129  -0.061   0.478 
+------------------------------------------------------------------------------
+Permutation component delta_t (Proposition 2.1, eq. 2.13)
+  share of t with delta_t = 1:   0.2804      psi = Pr(delta = 0):   0.7196
+==============================================================================
+Notes: *** p&lt;0.01, ** p&lt;0.05, * p&lt;0.10. Standard errors from the numerical Hessian
+of the profile log-likelihood with delta_t held at its MLE; &#x27;--&#x27; = not available
+(parameter on a bound, or non-positive local curvature). Gaussian innovations.</code></pre>
+<details><summary>DSCC-garch estimates as an HTML table</summary><div class="tw"><table><thead><tr><th>Parameter</th><th class=n>Estimate</th><th class=n>Std. err.</th></tr></thead><tbody><tr><td>D0[Mkt-RF]</td><td class=n>0.0001</td><td class=n>--</td></tr><tr><td>D0[SMB]</td><td class=n>0.0298***</td><td class=n>(0.0088)</td></tr><tr><td>D0[HML]</td><td class=n>0.0102***</td><td class=n>(0.0029)</td></tr><tr><td>D0[RMW]</td><td class=n>0.0146***</td><td class=n>(0.0039)</td></tr><tr><td>D0[CMA]</td><td class=n>0.0003</td><td class=n>(0.0002)</td></tr><tr><td>D11[Mkt-RF]</td><td class=n>0.9849***</td><td class=n>(0.0021)</td></tr><tr><td>D11[SMB]</td><td class=n>0.9174***</td><td class=n>(0.0151)</td></tr><tr><td>D11[HML]</td><td class=n>0.7044***</td><td class=n>(0.0424)</td></tr><tr><td>D11[RMW]</td><td class=n>0.7243***</td><td class=n>(0.0471)</td></tr><tr><td>D11[CMA]</td><td class=n>0.9437***</td><td class=n>(0.0136)</td></tr><tr><td>D21[Mkt-RF]</td><td class=n>0.0108***</td><td class=n>(0.0008)</td></tr><tr><td>D21[SMB]</td><td class=n>0.0553***</td><td class=n>(0.0117)</td></tr><tr><td>D21[HML]</td><td class=n>0.2307***</td><td class=n>(0.0333)</td></tr><tr><td>D21[RMW]</td><td class=n>0.1790***</td><td class=n>(0.0308)</td></tr><tr><td>D21[CMA]</td><td class=n>0.0489***</td><td class=n>(0.0107)</td></tr><tr><td>mu[Mkt-RF,SMB]</td><td class=n>-0.5006***</td><td class=n>(0.0215)</td></tr><tr><td>mu[Mkt-RF,HML]</td><td class=n>-0.3587***</td><td class=n>(0.0337)</td></tr><tr><td>mu[Mkt-RF,RMW]</td><td class=n>-0.7978***</td><td class=n>(0.0231)</td></tr><tr><td>mu[Mkt-RF,CMA]</td><td class=n>-1.5503***</td><td class=n>(0.0458)</td></tr><tr><td>mu[SMB,HML]</td><td class=n>-0.9970***</td><td class=n>(0.0177)</td></tr><tr><td>mu[SMB,RMW]</td><td class=n>0.0462*</td><td class=n>(0.0251)</td></tr><tr><td>mu[SMB,CMA]</td><td class=n>-0.8496***</td><td class=n>(0.0222)</td></tr><tr><td>mu[HML,RMW]</td><td class=n>-1.1977***</td><td class=n>(0.0261)</td></tr><tr><td>mu[HML,CMA]</td><td class=n>-0.9003***</td><td class=n>(0.0264)</td></tr><tr><td>mu[RMW,CMA]</td><td class=n>-0.3279***</td><td class=n>(0.0336)</td></tr><tr><td>alpha[Mkt-RF,SMB]</td><td class=n>-0.4531*</td><td class=n>(0.2410)</td></tr><tr><td>alpha[Mkt-RF,HML]</td><td class=n>-0.6873**</td><td class=n>(0.2727)</td></tr><tr><td>alpha[Mkt-RF,RMW]</td><td class=n>-0.3376*</td><td class=n>(0.1837)</td></tr><tr><td>alpha[Mkt-RF,CMA]</td><td class=n>0.7651***</td><td class=n>(0.0556)</td></tr><tr><td>alpha[SMB,HML]</td><td class=n>0.5244***</td><td class=n>(0.0999)</td></tr><tr><td>alpha[SMB,RMW]</td><td class=n>-0.9769***</td><td class=n>(0.0313)</td></tr><tr><td>alpha[SMB,CMA]</td><td class=n>-0.4668</td><td class=n>(0.3458)</td></tr><tr><td>alpha[HML,RMW]</td><td class=n>0.9206***</td><td class=n>(0.0214)</td></tr><tr><td>alpha[HML,CMA]</td><td class=n>-0.1560</td><td class=n>(0.1900)</td></tr><tr><td>alpha[RMW,CMA]</td><td class=n>-0.4088</td><td class=n>(0.2909)</td></tr><tr><td>beta[Mkt-RF,SMB]</td><td class=n>0.0370**</td><td class=n>(0.0156)</td></tr><tr><td>beta[Mkt-RF,HML]</td><td class=n>0.0056</td><td class=n>(0.0309)</td></tr><tr><td>beta[Mkt-RF,RMW]</td><td class=n>0.1769***</td><td class=n>(0.0460)</td></tr><tr><td>beta[Mkt-RF,CMA]</td><td class=n>0.0185***</td><td class=n>(0.0039)</td></tr><tr><td>beta[SMB,HML]</td><td class=n>-0.0200</td><td class=n>--</td></tr><tr><td>beta[SMB,RMW]</td><td class=n>-0.0200</td><td class=n>--</td></tr><tr><td>beta[SMB,CMA]</td><td class=n>-0.0118</td><td class=n>(0.0121)</td></tr><tr><td>beta[HML,RMW]</td><td class=n>-0.0200</td><td class=n>--</td></tr><tr><td>beta[HML,CMA]</td><td class=n>-0.0337</td><td class=n>(0.0255)</td></tr><tr><td>beta[RMW,CMA]</td><td class=n>-0.0613</td><td class=n>(0.0565)</td></tr></tbody></table></div></details>
+<details><summary>DSCC-egarch estimates as an HTML table</summary><div class="tw"><table><thead><tr><th>Parameter</th><th class=n>Estimate</th><th class=n>Std. err.</th></tr></thead><tbody><tr><td>D0[Mkt-RF]</td><td class=n>-1.4130</td><td class=n>--</td></tr><tr><td>D0[SMB]</td><td class=n>-0.1600***</td><td class=n>(0.0474)</td></tr><tr><td>D0[HML]</td><td class=n>-0.3902***</td><td class=n>(0.0510)</td></tr><tr><td>D0[RMW]</td><td class=n>-0.8279***</td><td class=n>(0.3021)</td></tr><tr><td>D0[CMA]</td><td class=n>-0.5587***</td><td class=n>(0.1974)</td></tr><tr><td>D11[Mkt-RF]</td><td class=n>0.6012</td><td class=n>--</td></tr><tr><td>D11[SMB]</td><td class=n>0.9664***</td><td class=n>(0.0195)</td></tr><tr><td>D11[HML]</td><td class=n>0.9571***</td><td class=n>(0.0124)</td></tr><tr><td>D11[RMW]</td><td class=n>0.7231***</td><td class=n>(0.1342)</td></tr><tr><td>D11[CMA]</td><td class=n>0.8927***</td><td class=n>(0.0496)</td></tr><tr><td>D21[Mkt-RF]</td><td class=n>-0.1090</td><td class=n>--</td></tr><tr><td>D21[SMB]</td><td class=n>0.1947***</td><td class=n>(0.0579)</td></tr><tr><td>D21[HML]</td><td class=n>0.3699***</td><td class=n>(0.0436)</td></tr><tr><td>D21[RMW]</td><td class=n>0.3623***</td><td class=n>(0.0826)</td></tr><tr><td>D21[CMA]</td><td class=n>0.2518***</td><td class=n>(0.0523)</td></tr><tr><td>mu[Mkt-RF,SMB]</td><td class=n>-0.5162***</td><td class=n>(0.0225)</td></tr><tr><td>mu[Mkt-RF,HML]</td><td class=n>-0.2744***</td><td class=n>(0.0396)</td></tr><tr><td>mu[Mkt-RF,RMW]</td><td class=n>-0.7496***</td><td class=n>(0.0258)</td></tr><tr><td>mu[Mkt-RF,CMA]</td><td class=n>-1.6047***</td><td class=n>(0.0495)</td></tr><tr><td>mu[SMB,HML]</td><td class=n>-0.9602***</td><td class=n>(0.0199)</td></tr><tr><td>mu[SMB,RMW]</td><td class=n>-0.0089</td><td class=n>(0.0256)</td></tr><tr><td>mu[SMB,CMA]</td><td class=n>-0.8815***</td><td class=n>(0.0279)</td></tr><tr><td>mu[HML,RMW]</td><td class=n>-1.1548***</td><td class=n>(0.0292)</td></tr><tr><td>mu[HML,CMA]</td><td class=n>-0.9351***</td><td class=n>(0.0249)</td></tr><tr><td>mu[RMW,CMA]</td><td class=n>-0.3858***</td><td class=n>(0.0350)</td></tr><tr><td>alpha[Mkt-RF,SMB]</td><td class=n>-0.4623**</td><td class=n>(0.2062)</td></tr><tr><td>alpha[Mkt-RF,HML]</td><td class=n>0.0001</td><td class=n>(0.5820)</td></tr><tr><td>alpha[Mkt-RF,RMW]</td><td class=n>-0.4154**</td><td class=n>(0.1784)</td></tr><tr><td>alpha[Mkt-RF,CMA]</td><td class=n>0.6860***</td><td class=n>(0.0434)</td></tr><tr><td>alpha[SMB,HML]</td><td class=n>-0.1210</td><td class=n>(1.0860)</td></tr><tr><td>alpha[SMB,RMW]</td><td class=n>-0.9552***</td><td class=n>(0.1851)</td></tr><tr><td>alpha[SMB,CMA]</td><td class=n>-0.4706</td><td class=n>(0.3439)</td></tr><tr><td>alpha[HML,RMW]</td><td class=n>0.4461</td><td class=n>(0.7242)</td></tr><tr><td>alpha[HML,CMA]</td><td class=n>-0.8047</td><td class=n>--</td></tr><tr><td>alpha[RMW,CMA]</td><td class=n>-0.3687</td><td class=n>(0.4410)</td></tr><tr><td>beta[Mkt-RF,SMB]</td><td class=n>0.0290*</td><td class=n>(0.0149)</td></tr><tr><td>beta[Mkt-RF,HML]</td><td class=n>0.0374</td><td class=n>(0.0378)</td></tr><tr><td>beta[Mkt-RF,RMW]</td><td class=n>0.1659***</td><td class=n>(0.0444)</td></tr><tr><td>beta[Mkt-RF,CMA]</td><td class=n>0.0211***</td><td class=n>(0.0034)</td></tr><tr><td>beta[SMB,HML]</td><td class=n>0.5981***</td><td class=n>(0.0000)</td></tr><tr><td>beta[SMB,RMW]</td><td class=n>2.7256</td><td class=n>--</td></tr><tr><td>beta[SMB,CMA]</td><td class=n>-0.0088</td><td class=n>(0.0120)</td></tr><tr><td>beta[HML,RMW]</td><td class=n>3.2896***</td><td class=n>(0.0000)</td></tr><tr><td>beta[HML,CMA]</td><td class=n>-0.0369***</td><td class=n>(0.0094)</td></tr><tr><td>beta[RMW,CMA]</td><td class=n>-0.0342</td><td class=n>(0.0579)</td></tr><tr><td>a[Mkt-RF]</td><td class=n>-0.8588</td><td class=n>--</td></tr><tr><td>a[SMB]</td><td class=n>-0.1531**</td><td class=n>(0.0761)</td></tr><tr><td>a[HML]</td><td class=n>0.0597</td><td class=n>(0.1054)</td></tr><tr><td>a[RMW]</td><td class=n>0.3950*</td><td class=n>(0.2334)</td></tr><tr><td>a[CMA]</td><td class=n>-0.1867</td><td class=n>(0.1373)</td></tr><tr><td>c[Mkt-RF]</td><td class=n>2.2843</td><td class=n>(1.4844)</td></tr><tr><td>c[SMB]</td><td class=n>-0.0722***</td><td class=n>(0.0189)</td></tr><tr><td>c[HML]</td><td class=n>-0.2639**</td><td class=n>(0.1140)</td></tr><tr><td>c[RMW]</td><td class=n>-0.0768</td><td class=n>(0.2393)</td></tr><tr><td>c[CMA]</td><td class=n>0.2087</td><td class=n>(0.1375)</td></tr></tbody></table></div></details>
+<h3>Step 2 — conditional correlations, eigenvalues and the forecast</h3>
+<pre><code class="language-python">res.plot_correlations(); res.plot_eigenvalues()
+fc = res.forecast(21, init=&quot;average&quot;)</code></pre>
+<figure><a href="assets/fig_correlations.png"><img src="assets/fig_correlations.png" alt="Conditional correlations Ω&lt;sub&gt;t&lt;/sub&gt; (2.14), DSCC-λ&lt;sub&gt;egarch&lt;/sub&gt;, 1980–1984." loading="lazy"></a><figcaption>Conditional correlations Ω<sub>t</sub> (2.14), DSCC-λ<sub>egarch</sub>, 1980–1984.</figcaption></figure>
+<figure><a href="assets/fig_eigenvalues.png"><img src="assets/fig_eigenvalues.png" alt="Eigenvalue paths Λ&lt;sub&gt;t&lt;/sub&gt; (log scale)." loading="lazy"></a><figcaption>Eigenvalue paths Λ<sub>t</sub> (log scale).</figcaption></figure>
+<pre class="out"><code class="language-plaintext">21-day average forecast of the factor correlation matrix (DSCC-egarch-av):
+        Mkt-RF    SMB    HML    RMW    CMA
+Mkt-RF   1.000 -0.532 -0.446  0.185 -0.318
+SMB     -0.532  1.000 -0.096  0.044 -0.079
+HML     -0.446 -0.096  1.000 -0.379  0.539
+RMW      0.185  0.044 -0.379  1.000 -0.316
+CMA     -0.318 -0.079  0.539 -0.316  1.000</code></pre>
+<figure><a href="assets/fig_corr_heatmap.png"><img src="assets/fig_corr_heatmap.png" alt="Last in-sample correlation matrix (Parula colour scale)." loading="lazy"></a><figcaption>Last in-sample correlation matrix (Parula colour scale).</figcaption></figure>
+<h3>Step 3 — the span benchmark (Section 3)</h3>
+<pre><code class="language-python">from dscc import elliptope as el
+el.elliptope_volume(3)           # pi^2/2
+el.coverage_table(T=400_000, innovations=&quot;iid&quot;, slice_on=0)    # Table 1, authors&#x27; simulator
+el.coverage_table(T=400_000, innovations=&quot;cdcc&quot;)               # Aielli (2013), as described</code></pre>
+<figure><a href="assets/fig1_elliptope.png"><img src="assets/fig1_elliptope.png" alt="Figure 1 — the elliptope E&lt;sub&gt;3&lt;/sub&gt; and its sections at ω&lt;sub&gt;3&lt;/sub&gt; = 0, 0.25, 0.75." loading="lazy"></a><figcaption>Figure 1 — the elliptope E<sub>3</sub> and its sections at ω<sub>3</sub> = 0, 0.25, 0.75.</figcaption></figure>
+<p><b>Table 1 — DCC convex-hull surface per slice, authors' simulator (reproduces the paper's Table 1).</b></p>
+<div class="tw"><table><thead><tr><th></th><th class=n>Max cover</th><th class=n>Equicorrelation rho=0.0</th><th class=n>Equicorrelation rho=0.3</th><th class=n>Equicorrelation rho=0.5</th><th class=n>Equicorrelation rho=0.7</th><th class=n>Toeplitz rho=0.5</th><th class=n>Toeplitz rho=0.75</th><th class=n>Toeplitz rho=0.95</th><th class=n>Uniform gamma=0.05</th><th class=n>Uniform gamma=0.1</th></tr></thead><tbody><tr><td><b>(0.000, 0.125)</b></td><td class="n">3.14</td><td class="n">2.77</td><td class="n">2.76</td><td class="n">2.77</td><td class="n">2.79</td><td class="n">2.80</td><td class="n">2.78</td><td class="n">2.77</td><td class="n">2.77</td><td class="n">2.76</td></tr><tr><td><b>(0.125, 0.250)</b></td><td class="n">3.12</td><td class="n">2.71</td><td class="n">2.72</td><td class="n">2.70</td><td class="n">2.73</td><td class="n">2.73</td><td class="n">2.74</td><td class="n">2.73</td><td class="n">2.72</td><td class="n">2.73</td></tr><tr><td><b>(0.250, 0.375)</b></td><td class="n">3.04</td><td class="n">2.64</td><td class="n">2.64</td><td class="n">2.64</td><td class="n">2.63</td><td class="n">2.67</td><td class="n">2.64</td><td class="n">2.63</td><td class="n">2.61</td><td class="n">2.63</td></tr><tr><td><b>(0.375, 0.500)</b></td><td class="n">2.91</td><td class="n">2.47</td><td class="n">2.47</td><td class="n">2.49</td><td class="n">2.48</td><td class="n">2.48</td><td class="n">2.50</td><td class="n">2.48</td><td class="n">2.49</td><td class="n">2.47</td></tr><tr><td><b>(0.500, 0.625)</b></td><td class="n">2.72</td><td class="n">2.27</td><td class="n">2.30</td><td class="n">2.30</td><td class="n">2.28</td><td class="n">2.24</td><td class="n">2.28</td><td class="n">2.24</td><td class="n">2.28</td><td class="n">2.26</td></tr><tr><td><b>(0.625, 0.750)</b></td><td class="n">2.45</td><td class="n">1.97</td><td class="n">1.96</td><td class="n">1.95</td><td class="n">1.94</td><td class="n">1.98</td><td class="n">1.97</td><td class="n">1.98</td><td class="n">1.93</td><td class="n">2.00</td></tr><tr><td><b>(0.750, 0.875)</b></td><td class="n">2.08</td><td class="n">1.58</td><td class="n">1.59</td><td class="n">1.54</td><td class="n">1.57</td><td class="n">1.57</td><td class="n">1.55</td><td class="n">1.61</td><td class="n">1.54</td><td class="n">1.54</td></tr><tr><td><b>(0.875, 1.000)</b></td><td class="n">1.52</td><td class="n">0.90</td><td class="n">0.87</td><td class="n">0.89</td><td class="n">0.94</td><td class="n">0.90</td><td class="n">0.90</td><td class="n">0.88</td><td class="n">0.84</td><td class="n">0.85</td></tr></tbody></table></div>
+<p><b>Table 1 — DCC convex-hull surface per slice, Aielli (2013) corrected DCC, the design the paper describes.</b></p>
+<div class="tw"><table><thead><tr><th></th><th class=n>Max cover</th><th class=n>Equicorrelation rho=0.0</th><th class=n>Equicorrelation rho=0.3</th><th class=n>Equicorrelation rho=0.5</th><th class=n>Equicorrelation rho=0.7</th><th class=n>Toeplitz rho=0.5</th><th class=n>Toeplitz rho=0.75</th><th class=n>Toeplitz rho=0.95</th><th class=n>Uniform gamma=0.05</th><th class=n>Uniform gamma=0.1</th></tr></thead><tbody><tr><td><b>(0.000, 0.125)</b></td><td class="n">3.14</td><td class="n">2.99</td><td class="n">2.95</td><td class="n">2.95</td><td class="n">2.68</td><td class="n">2.89</td><td class="n">2.78</td><td class="n">1.96</td><td class="n">2.98</td><td class="n">2.98</td></tr><tr><td><b>(0.125, 0.250)</b></td><td class="n">3.12</td><td class="n">2.92</td><td class="n">2.87</td><td class="n">2.90</td><td class="n">2.77</td><td class="n">2.87</td><td class="n">2.79</td><td class="n">2.06</td><td class="n">2.93</td><td class="n">2.93</td></tr><tr><td><b>(0.250, 0.375)</b></td><td class="n">3.04</td><td class="n">2.83</td><td class="n">2.80</td><td class="n">2.85</td><td class="n">2.67</td><td class="n">2.80</td><td class="n">2.74</td><td class="n">2.14</td><td class="n">2.81</td><td class="n">2.82</td></tr><tr><td><b>(0.375, 0.500)</b></td><td class="n">2.91</td><td class="n">2.61</td><td class="n">2.65</td><td class="n">2.68</td><td class="n">2.63</td><td class="n">2.66</td><td class="n">2.63</td><td class="n">2.24</td><td class="n">2.62</td><td class="n">2.66</td></tr><tr><td><b>(0.500, 0.625)</b></td><td class="n">2.72</td><td class="n">2.43</td><td class="n">2.44</td><td class="n">2.50</td><td class="n">2.43</td><td class="n">2.49</td><td class="n">2.50</td><td class="n">2.16</td><td class="n">2.44</td><td class="n">2.44</td></tr><tr><td><b>(0.625, 0.750)</b></td><td class="n">2.45</td><td class="n">2.11</td><td class="n">2.13</td><td class="n">2.22</td><td class="n">2.22</td><td class="n">2.20</td><td class="n">2.28</td><td class="n">2.10</td><td class="n">2.19</td><td class="n">2.19</td></tr><tr><td><b>(0.750, 0.875)</b></td><td class="n">2.08</td><td class="n">1.73</td><td class="n">1.81</td><td class="n">1.81</td><td class="n">1.87</td><td class="n">1.82</td><td class="n">1.92</td><td class="n">1.86</td><td class="n">1.74</td><td class="n">1.75</td></tr><tr><td><b>(0.875, 1.000)</b></td><td class="n">1.52</td><td class="n">1.23</td><td class="n">1.26</td><td class="n">1.28</td><td class="n">1.32</td><td class="n">1.29</td><td class="n">1.38</td><td class="n">1.41</td><td class="n">1.17</td><td class="n">1.18</td></tr></tbody></table></div>
+<figure><a href="assets/fig2_coverage.png"><img src="assets/fig2_coverage.png" alt="Figure 2 — DCC coverage (red) against the elliptope (green), slice by slice." loading="lazy"></a><figcaption>Figure 2 — DCC coverage (red) against the elliptope (green), slice by slice.</figcaption></figure>
+<h3>Step 4 — monthly minimum-variance backtest (Section 5)</h3>
+<pre><code class="language-python">fcs = [dscc.EqualWeight(), dscc.SampleCovForecaster(), dscc.DCCForecaster(),
+       dscc.DSCCForecaster(&quot;garch&quot;, init=&quot;last&quot;),
+       dscc.DSCCForecaster(&quot;egarch&quot;, init=&quot;average&quot;)]
+bt = dscc.rolling_backtest(factors, fcs, n_months=60)
+bt.performance_table(); bt.pairwise(); bt.turnover_table(); bt.covariance_table()</code></pre>
+<div class="note">The portfolio is formed from the five factor portfolios themselves. The paper's 1,000-stock exercise needs CRSP data (restricted) and the NL-DCC residual block of De Nard, Ledoit and Wolf (2021), so it is not reproduced here.</div>
+</section>
+
+<section id="interpret">
+  <span class="eyebrow e-amber">Reading the output</span>
+  <h2>Interpreting the tables and figures</h2>
+  <div class="two">
+    <div class="card t-amber"><h3>Estimates</h3>
+      <ul>
+        <li><b>D0, D11, D21</b>: level, persistence and news response of each eigenvalue.</li>
+        <li><b>mu, alpha, beta</b>: long-run angle (radians), persistence and data loading of each free rotation element. A high |alpha| means the correlation structure moves slowly.</li>
+        <li><b>a, c</b>: asymmetry of the EGARCH response.</li>
+        <li><b>ψ̂</b>: share of days on the unpermuted branch, used to weight the forecasts.</li>
+      </ul></div>
+    <div class="card t-amber"><h3>Evaluation</h3>
+      <ul>
+        <li><b>Table 1</b>: area reached by DCC in each slice, against the maximum allowed by positive definiteness.</li>
+        <li><b>AV, SD, IR</b>: annualised mean return, volatility and information ratio.</li>
+        <li><b>TO, GL, PL</b>: turnover, gross leverage, share of short positions.</li>
+        <li><b>Pairwise tests</b>: a small one-sided p-value means Model 1 earns more.</li>
+        <li><b>Δ′, κ</b>: distance of the correlations from zero, and conditioning of the matrix.</li>
+      </ul></div>
+  </div>
+</section>
+
+<section id="fidelity">
+  <span class="eyebrow e-rose">Fidelity</span>
+  <h2>Checked against the paper and the authors' code</h2>
+  <p>Every step was compared with the paper and with the authors' replication package (<a href="https://doi.org/10.5281/zenodo.20817596">Zenodo</a>). Where the two differ, <code>dscc</code> follows the paper by default and offers an option that reproduces the code.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Point</th><th>Paper</th><th>Authors' code</th><th><code>dscc</code></th></tr></thead>
+    <tbody>
+      <tr><td>Complement Q<sub>2t</sub>, k ≥ 3</td><td>not specified</td><td>LAPACK's arbitrary null-space basis</td><td>deterministic Householder; <code>xi=</code> reproduces MATLAB</td></tr>
+      <tr><td>ξ<sub>t</sub>, k = 2</td><td>arcsin ([A23] 4.5)</td><td>principal log</td><td>principal log = atan2 (arcsin fails when x<sub>1</sub> &lt; 0)</td></tr>
+      <tr><td>Υ over the forecast horizon</td><td>iterated with (2.9)</td><td>frozen at Υ<sub>T</sub></td><td>iterated; <code>mode="replication"</code></td></tr>
+      <tr><td>DCC simulation, Table 1</td><td>Aielli (2013) cDCC</td><td>iid innovations</td><td>cDCC; <code>innovations="iid"</code></td></tr>
+      <tr><td>Holding period</td><td>buy-and-hold</td><td>weights reset daily</td><td>buy-and-hold; <code>holding="constant"</code></td></tr>
+      <tr><td>Estimation of θ</td><td>MLE, 10 starts</td><td>θ loaded from <code>thetaM.mat</code></td><td><code>fit</code>: +43.9 log-likelihood points above the stored θ on window 1</td></tr>
+    </tbody></table></div>
+  <div class="note">Numerical checks:
+    <ul>
+      <li>The general-k filter equals the bivariate closed form of [A23] to 10<sup>−13</sup>.</li>
+      <li>V<sub>3</sub> = π²/2 is exact.</li>
+      <li>The DCC column ρ = 0.3 of Table 1 is reproduced to the second decimal.</li>
+      <li>The numba and NumPy code paths give identical results.</li>
+    </ul>
+    The full list is in <a href="https://github.com/merwanroudane/dscc/blob/main/docs/methods.md">docs/methods.md</a>.</div>
+</section>
+
+<section id="beyond">
+  <span class="eyebrow e-teal">Beyond the paper</span>
+  <h2>Additions to the original method</h2>
+  <div class="grid">
+    <div class="card t-teal"><h3>Exact benchmark</h3><p><code>slab_projection_area</code> computes the true maximal area of each slice. It is larger than the paper's π√(1−lb²), so the DCC shortfall is larger than the paper reports.</p></div>
+    <div class="card t-teal"><h3>General-k volume</h3><p>vol(E<sub>k</sub>) for any k, from the Lewandowski–Kurowicka–Joe (2009) normalising constant.</p></div>
+    <div class="card t-teal"><h3>Standard errors</h3><p>Profile-likelihood Wald inference with δ<sub>t</sub> at its MLE, which the paper does not report.</p></div>
+    <div class="card t-teal"><h3>Robust optimiser</h3><p>Best-point tracking, a Powell polish and multi-start for a piecewise-smooth likelihood.</p></div>
+  </div>
+</section>
+
+<section id="refs">
+  <span class="eyebrow e-sky">References</span>
+  <h2>References</h2>
+  <ol>
+    <li>Abadir, K. M. and M. Rockinger (2026). Dynamic spectral conditional correlations. <em>Econometrics Journal</em>. <a href="https://doi.org/10.1093/ectj/utag017">doi:10.1093/ectj/utag017</a></li>
+    <li>Abadir, K. M. (2023). Explicit minimal representation of variance matrices, and its implication for dynamic volatility models. <em>Econometrics Journal</em> 26, 88–104. <a href="https://doi.org/10.1093/ectj/utac023">doi:10.1093/ectj/utac023</a></li>
+    <li>Abadir, K. M. and M. Rockinger (2026). Replication package. Zenodo. <a href="https://doi.org/10.5281/zenodo.20817596">doi:10.5281/zenodo.20817596</a></li>
+    <li>Aielli, G. P. (2013). Dynamic conditional correlation: on properties and estimation. <em>Journal of Business and Economic Statistics</em> 31, 282–299.</li>
+    <li>De Nard, G., O. Ledoit and M. Wolf (2021). Factor models for portfolio selection in large dimensions. <em>Journal of Financial Econometrics</em> 19, 236–257.</li>
+    <li>Engle, R. F. (2002). Dynamic conditional correlation. <em>Journal of Business and Economic Statistics</em> 20, 339–350. <a href="https://doi.org/10.1198/073500102288618487">doi:10.1198/073500102288618487</a></li>
+    <li>Lewandowski, D., D. Kurowicka and H. Joe (2009). Generating random correlation matrices based on vines and extended onion method. <em>Journal of Multivariate Analysis</em> 100, 1989–2001. <a href="https://doi.org/10.1016/j.jmva.2009.04.008">doi:10.1016/j.jmva.2009.04.008</a></li>
+    <li>Newey, W. K. and K. D. West (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. <em>Econometrica</em> 55, 703–708. <a href="https://doi.org/10.2307/1913610">doi:10.2307/1913610</a></li>
+  </ol>
+</section>
+
+<section id="author">
+  <span class="eyebrow e-indigo">Author</span>
+  <h2>Developer and citation</h2>
+  <div class="card t-indigo">
+    <div class="author"><div class="avatar">MR</div>
+      <div><b>Dr Merwan Roudane</b><br>
+        <a href="mailto:merwanroudane920@gmail.com">merwanroudane920@gmail.com</a> · <a href="https://github.com/merwanroudane">github.com/merwanroudane</a><br>
+        <a href="https://github.com/merwanroudane/dscc">Repository</a> · <a href="https://pypi.org/project/dscc/">PyPI</a> · <a href="https://doi.org/10.1093/ectj/utag017">Paper</a> ·
+        Other packages: <a href="https://cran.r-project.org/package=QuantileOnQuantile">QuantileOnQuantile</a>, <a href="https://cran.r-project.org/package=mqqr">mqqr</a>, <a href="https://cran.r-project.org/package=qqkrls">qqkrls</a>, <a href="https://cran.r-project.org/package=mqqcause">mqqcause</a> (CRAN)</div></div>
+<pre><code class="language-plaintext" id="bib">@software{roudane_dscc,
+  author  = {Roudane, Merwan},
+  title   = {{dscc}: Dynamic Spectral Conditional Correlations in Python},
+  year    = {2026},
+  url     = {https://github.com/merwanroudane/dscc},
+  version = {0.1.0}
+}</code></pre>
+    <p>Please also cite Abadir and Rockinger (2026) and Abadir (2023).</p>
+  </div>
+</section>
+</main>
+<footer>Developed and maintained by Dr Merwan Roudane · © 2026 · MIT Licence · dscc v0.1.0 · updated 2026-11-05</footer>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  renderMathInElement(document.body, {delimiters: [{left: "$$", right: "$$", display: true}, {left: "\\(", right: "\\)", display: false}]});
+  hljs.highlightAll();
+  document.querySelectorAll("pre").forEach(function (p) {
+    var b = document.createElement("button"); b.className = "copy"; b.textContent = "Copy";
+    b.onclick = function () { navigator.clipboard.writeText(p.innerText.replace(/Copy$/, "").trim()); b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1200); };
+    p.appendChild(b);
+  });
+  document.querySelectorAll("button.copy[data-copy]").forEach(function (b) {
+    b.onclick = function () { navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1200); };
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dscc — Dynamic Spectral Conditional Correlations in Python</title>
+<meta name="description" content="Python implementation of the DSCC model of Abadir and Rockinger (2026): estimation, forecasting, elliptope coverage, DCC baseline and minimum-variance portfolios.">
+<meta name="author" content="Dr Merwan Roudane">
+<meta property="og:title" content="dscc">
+<meta property="og:description" content="Dynamic Spectral Conditional Correlations in Python (Abadir and Rockinger, 2026).">
+<meta property="og:image" content="https://merwanroudane.github.io/dscc/assets/fig1_elliptope.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<link rel="stylesheet" href="assets/style.css?v=__VERSION__-__DATE__">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <span class="brand">dscc <span class="by">by Dr Merwan Roudane</span></span>
+  <nav class="nav">
+    <a href="#install">Install</a><a href="#theory">Theory</a><a class="opt" href="#api">API</a>
+    <a href="#example">Example</a><a class="opt" href="#fidelity">Fidelity</a><a class="opt" href="#refs">References</a>
+    <a href="https://github.com/merwanroudane/dscc">GitHub</a><a href="https://pypi.org/project/dscc/">PyPI</a>
+  </nav>
+</div></header>
+
+<div class="hero"><div class="wrap">
+  <div class="pills"><span class="pill">v__VERSION__</span><span class="pill">MIT licence</span><span class="pill">Python ≥ 3.9</span></div>
+  <h1>Dynamic Spectral Conditional Correlations</h1>
+  <p class="lead">Estimation, forecasting and evaluation of the DSCC model, a multivariate volatility model whose correlation matrices are positive definite by construction and span the whole space of correlation matrices.</p>
+  <p class="dev">Developed by <a href="https://github.com/merwanroudane"><b>Dr Merwan Roudane</b></a> · <a href="mailto:merwanroudane920@gmail.com">merwanroudane920@gmail.com</a></p>
+  <p class="cite">Python implementation of Abadir, K. M. and M. Rockinger (2026), <em>Econometrics Journal</em> · Abadir, K. M. (2023), <em>Econometrics Journal</em> 26, 88–104</p>
+  <div class="install"><code>pip install "dscc[fast]"</code><button class="copy" data-copy='pip install "dscc[fast]"'>Copy</button></div>
+  <div class="btns">
+    <a class="btn primary" href="https://github.com/merwanroudane/dscc">GitHub</a>
+    <a class="btn ghost" href="https://pypi.org/project/dscc/">PyPI</a>
+    <a class="btn ghost" href="https://doi.org/10.1093/ectj/utag017">Read the paper</a>
+  </div>
+</div></div>
+
+<main class="wrap">
+<section id="what">
+  <span class="eyebrow e-indigo">What it does</span>
+  <h2>One package for the whole paper</h2>
+  <div class="grid">
+    <div class="card t-indigo feature"><h3>Estimation</h3><p>DSCC-λ<sub>garch</sub> and DSCC-λ<sub>egarch</sub> by maximum likelihood (2.13), with in-sample δ̂<sub>t</sub>, multi-start optimisation and standard errors.</p></div>
+    <div class="card t-teal feature"><h3>Forecasting</h3><p>Multistep forecasts of Σ<sub>T+h</sub> (Section 4), including the "-av" variant, in the paper's form or exactly as in the authors' MATLAB code.</p></div>
+    <div class="card t-amber feature"><h3>Span benchmark</h3><p>Exact elliptope volumes, slice-by-slice convex-hull coverage and DCC simulation: Table 1 and Figures 1–3.</p></div>
+    <div class="card t-sky feature"><h3>Portfolios</h3><p>Minimum-variance backtests against DCC, the sample covariance and 1/N, with AV/SD/IR, turnover, HAC tests and Tables 2–6.</p></div>
+  </div>
+</section>
+
+<section id="install">
+  <span class="eyebrow e-sky">Installation</span>
+  <h2>Install in one line</h2>
+<pre><code class="language-bash">pip install dscc                  # core: numpy, scipy, pandas, matplotlib
+pip install "dscc[fast]"          # + numba, about 4x faster likelihood
+pip install git+https://github.com/merwanroudane/dscc.git   # development version</code></pre>
+  <div class="note">Never used Python? The <a href="https://github.com/merwanroudane/dscc#2-start-from-absolutely-nothing">README's step-by-step guide</a> takes you from installing Anaconda to your first estimate in fifteen minutes.</div>
+</section>
+
+<section id="theory">
+  <span class="eyebrow e-indigo">Theory</span>
+  <h2>The model</h2>
+  <div class="card theory">
+    <h3>Explicit minimal representation</h3>
+    <p>Abadir (2023, Prop. 2.1) shows that every positive-definite matrix can be written as</p>
+    $$\Sigma_t = P^{\delta_t}\, e^{\Upsilon_t}\, \Lambda_t\, e^{-\Upsilon_t}\, P^{\delta_t},\qquad \Lambda_t=\mathrm{diag}(\lambda_{1t},\dots,\lambda_{kt}),\ \lambda_{it}>0,$$
+    <p>where \(\Upsilon_t\) is skew-symmetric with \(k(k-1)/2\) <em>unrestricted</em> elements, \(\delta_t\in\{0,1\}\), and \(P\) swaps the first two variates. The only constraints are the \(k\) signs \(\lambda_{it}>0\).</p>
+    <h3>Dynamics</h3>
+    <p>With \(z_t=e^{-\Upsilon_t}P^{\delta_t}x_t\), the eigenvalues follow a GARCH(1,1) (2.5) or an EGARCH(1,1) (2.6):</p>
+    $$\Lambda_t=D_0+D_{11}\Lambda_{t-1}+D_{21}\,\mathrm{dg}(z_{t-1}z_{t-1}'),\qquad \log\Lambda_t=D_0+D_{11}\log\Lambda_{t-1}+D_{21}\,\mathrm{diag}\,g(\Lambda_{t-1}^{-1/2}z_{t-1})',$$
+    <p>with \(g_i(v)=|v_i-c_i|-a_i(v_i-c_i)\). The rotation is driven by the data through \(x_tx_t'=Q_t\,\mathrm{diag}(x_t'x_t,O)Q_t'\) and \(\Xi_t=\log Q_t\) (2.10)–(2.11):</p>
+    $$\upsilon_{ijt}=(1-\alpha_{ij})\mu_{ij}+\alpha_{ij}\upsilon_{ij,t-1}+\beta_{ij}\xi_{ij,t-1}.\tag{2.9}$$
+    <h3>Likelihood and correlations</h3>
+    $$\ell(\theta,\{\delta_t\})=\sum_{t=1}^{T}\Big(\log f_\varepsilon(\Sigma_t^{-1/2}x_t)-\tfrac12\sum_{i=1}^{k}\log\lambda_{it}\Big),\qquad \Omega_t=\mathrm{dg}(\Sigma_t)^{-1/2}\Sigma_t\,\mathrm{dg}(\Sigma_t)^{-1/2}.$$
+    <p>Each \(\delta_t\) maximises its own summand, which takes \(2T\) evaluations instead of \(2^T\). Forecasts weight the two \(\delta\)-branches by \(\hat\psi=\Pr(\delta=0)\) (Section 4).</p>
+    <h3>The span benchmark</h3>
+    <p>For \(k=3\), the elliptope \(E_3\) has volume \(V_3=\pi^2/2\) (3.2), and its section at a fixed correlation \(c\) has area \(\pi\sqrt{1-c^2}\). DSCC attains the full span by construction. Proposition 2.1 of [AR26] shows that DCC cannot.</p>
+  </div>
+  <h3>Step → equation map</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Code</th><th>Paper</th><th>What it computes</th></tr></thead>
+    <tbody>
+      <tr><td><code>compose_sigma</code>, <code>decompose_sigma</code></td><td>[A23] Prop. 2.1; [AR26] (2.1)</td><td>Σ = P<sup>δ</sup>e<sup>Υ</sup>Λe<sup>−Υ</sup>P<sup>δ</sup></td></tr>
+      <tr><td><code>orthogonal_from_data</code>, <code>xi_from_data</code></td><td>(2.10)–(2.11)</td><td>Q<sub>t</sub> with |Q<sub>t</sub>| = +1 and ξ<sub>t</sub> = vec(log Q<sub>t</sub>)</td></tr>
+      <tr><td><code>_filters.ups_path</code>, <code>expm_skew_batch</code></td><td>(2.9); [A23] Lemma 2.1</td><td>Υ<sub>t</sub> and e<sup>Υ<sub>t</sub></sup></td></tr>
+      <tr><td><code>dsh_filter(dynamics="garch")</code></td><td>(2.4)–(2.5)</td><td>Λ<sub>t</sub>, z<sub>t</sub></td></tr>
+      <tr><td><code>dsh_filter(dynamics="egarch")</code>, <code>g_abs</code></td><td>(2.6)–(2.7)</td><td>log Λ<sub>t</sub></td></tr>
+      <tr><td><code>DSCC.loglike</code>, <code>DSCC.fit</code></td><td>(2.13); [A23] (3.11), (5.1)</td><td>likelihood, δ̂<sub>t</sub>, θ̂</td></tr>
+      <tr><td><code>DSCCResults.correlation</code></td><td>(2.14)</td><td>Ω<sub>t</sub></td></tr>
+      <tr><td><code>DSCCResults.forecast</code></td><td>Section 4, (4.1)</td><td>Σ<sub>T+h</sub>, h = 1…H</td></tr>
+      <tr><td><code>elliptope.elliptope_volume</code>, <code>slice_coverage</code></td><td>(3.1)–(3.2), Table 1</td><td>span benchmark</td></tr>
+      <tr><td><code>portfolio.*</code>, <code>rolling_backtest</code></td><td>Section 5, (5.2)–(5.3)</td><td>Tables 2–6</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="api">
+  <span class="eyebrow e-indigo">API</span>
+  <h2>Syntax reference</h2>
+  <div class="card t-indigo">
+<pre><code class="language-python">DSCC(data, dynamics="garch", demean=True, complement="householder", xi=None)
+DSCC.fit(start=None, n_starts=1, seed=0, method="SLSQP", maxiter=500, se=True, polish=True)
+DSCCResults.forecast(H=21, mode="paper", init="last")</code></pre>
+    <div class="tw"><table>
+      <thead><tr><th>Argument</th><th>Default</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>dynamics</code></td><td><code>"garch"</code></td><td>eigenvalue dynamics, (2.5) or (2.6)–(2.7)</td></tr>
+        <tr><td><code>complement</code></td><td><code>"householder"</code></td><td>orthogonal complement Q<sub>2t</sub> in (2.10); irrelevant for k = 2</td></tr>
+        <tr><td><code>xi</code></td><td><code>None</code></td><td>precomputed ξ<sub>t</sub> (2.11), e.g. the authors' MATLAB series</td></tr>
+        <tr><td><code>n_starts</code></td><td><code>1</code></td><td>number of starts; §5.5 of the paper uses 10</td></tr>
+        <tr><td><code>se</code></td><td><code>True</code></td><td>profile-likelihood standard errors, δ<sub>t</sub> fixed at its MLE</td></tr>
+        <tr><td><code>mode</code></td><td><code>"paper"</code></td><td><code>"replication"</code> reproduces the authors' forecast code</td></tr>
+        <tr><td><code>init</code></td><td><code>"last"</code></td><td><code>"average"</code> is the "-av" variant</td></tr>
+      </tbody></table></div>
+    <p>Results: <code>.params .bse .pvalues .loglik .aic .bic .delta .psi .lam .ups .sigma() .correlation() .std_resid() .summary() .to_latex() .to_markdown() .plot_correlations() .plot_eigenvalues()</code>. The full reference is in the <a href="https://github.com/merwanroudane/dscc#6-full-syntax-reference">README</a>.</p>
+  </div>
+  <div class="grid">
+    <div class="card t-amber"><h3>dscc.elliptope</h3><p><code>elliptope_volume</code>, <code>ellipse_slice_area</code>, <code>slab_projection_area</code>, <code>simulate_dcc</code>, <code>slice_coverage</code>, <code>coverage_table</code></p></div>
+    <div class="card t-teal"><h3>dscc.portfolio</h3><p><code>gmv_weights</code>, <code>performance</code>, <code>turnover_leverage</code>, <code>hac_mean_test</code>, <code>pairwise_tests</code>, <code>covariance_summaries</code></p></div>
+    <div class="card t-sky"><h3>Backtest and DCC</h3><p><code>rolling_backtest</code>, <code>DSCCForecaster</code>, <code>DCCForecaster</code>, <code>SampleCovForecaster</code>, <code>EqualWeight</code>, <code>DCC</code></p></div>
+  </div>
+</section>
+
+<section id="quick">
+  <span class="eyebrow e-teal">Quick start</span>
+  <h2>First estimate in 60 seconds</h2>
+<pre><code class="language-python">import dscc
+ff = dscc.datasets.load_ff5_daily(end="2022-03-31")       # downloaded once, then cached
+data = ff[["Mkt-RF", "HML"]].iloc[-1000:]
+res = dscc.DSCC(data, dynamics="egarch").fit(n_starts=3, seed=1)
+print(res.summary())
+fc = res.forecast(H=21, init="average")
+print(dscc.gmv_weights(fc.mean_sigma))</code></pre>
+<pre class="out"><code class="language-plaintext">__QUICKSTART__</code></pre>
+</section>
+
+<section id="example">
+  <span class="eyebrow e-teal">Application</span>
+  <h2>The paper on real data: the Fama–French five factors</h2>
+  <p>This section reproduces the whole paper on the five daily Fama–French factors (Mkt-RF, SMB, HML, RMW, CMA), 2 January 1980 to 31 March 2022, in percent. These are the factors whose covariance matrix Abadir and Rockinger model with DSCC in Section 5. The source is the Kenneth R. French Data Library. Every number below was printed by <code>examples/ff5_dscc_example.py</code>.</p>
+__EXAMPLE__
+</section>
+
+<section id="interpret">
+  <span class="eyebrow e-amber">Reading the output</span>
+  <h2>Interpreting the tables and figures</h2>
+  <div class="two">
+    <div class="card t-amber"><h3>Estimates</h3>
+      <ul>
+        <li><b>D0, D11, D21</b>: level, persistence and news response of each eigenvalue.</li>
+        <li><b>mu, alpha, beta</b>: long-run angle (radians), persistence and data loading of each free rotation element. A high |alpha| means the correlation structure moves slowly.</li>
+        <li><b>a, c</b>: asymmetry of the EGARCH response.</li>
+        <li><b>ψ̂</b>: share of days on the unpermuted branch, used to weight the forecasts.</li>
+      </ul></div>
+    <div class="card t-amber"><h3>Evaluation</h3>
+      <ul>
+        <li><b>Table 1</b>: area reached by DCC in each slice, against the maximum allowed by positive definiteness.</li>
+        <li><b>AV, SD, IR</b>: annualised mean return, volatility and information ratio.</li>
+        <li><b>TO, GL, PL</b>: turnover, gross leverage, share of short positions.</li>
+        <li><b>Pairwise tests</b>: a small one-sided p-value means Model 1 earns more.</li>
+        <li><b>Δ′, κ</b>: distance of the correlations from zero, and conditioning of the matrix.</li>
+      </ul></div>
+  </div>
+</section>
+
+<section id="fidelity">
+  <span class="eyebrow e-rose">Fidelity</span>
+  <h2>Checked against the paper and the authors' code</h2>
+  <p>Every step was compared with the paper and with the authors' replication package (<a href="https://doi.org/10.5281/zenodo.20817596">Zenodo</a>). Where the two differ, <code>dscc</code> follows the paper by default and offers an option that reproduces the code.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Point</th><th>Paper</th><th>Authors' code</th><th><code>dscc</code></th></tr></thead>
+    <tbody>
+      <tr><td>Complement Q<sub>2t</sub>, k ≥ 3</td><td>not specified</td><td>LAPACK's arbitrary null-space basis</td><td>deterministic Householder; <code>xi=</code> reproduces MATLAB</td></tr>
+      <tr><td>ξ<sub>t</sub>, k = 2</td><td>arcsin ([A23] 4.5)</td><td>principal log</td><td>principal log = atan2 (arcsin fails when x<sub>1</sub> &lt; 0)</td></tr>
+      <tr><td>Υ over the forecast horizon</td><td>iterated with (2.9)</td><td>frozen at Υ<sub>T</sub></td><td>iterated; <code>mode="replication"</code></td></tr>
+      <tr><td>DCC simulation, Table 1</td><td>Aielli (2013) cDCC</td><td>iid innovations</td><td>cDCC; <code>innovations="iid"</code></td></tr>
+      <tr><td>Holding period</td><td>buy-and-hold</td><td>weights reset daily</td><td>buy-and-hold; <code>holding="constant"</code></td></tr>
+      <tr><td>Estimation of θ</td><td>MLE, 10 starts</td><td>θ loaded from <code>thetaM.mat</code></td><td><code>fit</code>: +43.9 log-likelihood points above the stored θ on window 1</td></tr>
+    </tbody></table></div>
+  <div class="note">Numerical checks:
+    <ul>
+      <li>The general-k filter equals the bivariate closed form of [A23] to 10<sup>−13</sup>.</li>
+      <li>V<sub>3</sub> = π²/2 is exact.</li>
+      <li>The DCC column ρ = 0.3 of Table 1 is reproduced to the second decimal.</li>
+      <li>The numba and NumPy code paths give identical results.</li>
+    </ul>
+    The full list is in <a href="https://github.com/merwanroudane/dscc/blob/main/docs/methods.md">docs/methods.md</a>.</div>
+</section>
+
+<section id="beyond">
+  <span class="eyebrow e-teal">Beyond the paper</span>
+  <h2>Additions to the original method</h2>
+  <div class="grid">
+    <div class="card t-teal"><h3>Exact benchmark</h3><p><code>slab_projection_area</code> computes the true maximal area of each slice. It is larger than the paper's π√(1−lb²), so the DCC shortfall is larger than the paper reports.</p></div>
+    <div class="card t-teal"><h3>General-k volume</h3><p>vol(E<sub>k</sub>) for any k, from the Lewandowski–Kurowicka–Joe (2009) normalising constant.</p></div>
+    <div class="card t-teal"><h3>Standard errors</h3><p>Profile-likelihood Wald inference with δ<sub>t</sub> at its MLE, which the paper does not report.</p></div>
+    <div class="card t-teal"><h3>Robust optimiser</h3><p>Best-point tracking, a Powell polish and multi-start for a piecewise-smooth likelihood.</p></div>
+  </div>
+</section>
+
+<section id="refs">
+  <span class="eyebrow e-sky">References</span>
+  <h2>References</h2>
+  <ol>
+    <li>Abadir, K. M. and M. Rockinger (2026). Dynamic spectral conditional correlations. <em>Econometrics Journal</em>. <a href="https://doi.org/10.1093/ectj/utag017">doi:10.1093/ectj/utag017</a></li>
+    <li>Abadir, K. M. (2023). Explicit minimal representation of variance matrices, and its implication for dynamic volatility models. <em>Econometrics Journal</em> 26, 88–104. <a href="https://doi.org/10.1093/ectj/utac023">doi:10.1093/ectj/utac023</a></li>
+    <li>Abadir, K. M. and M. Rockinger (2026). Replication package. Zenodo. <a href="https://doi.org/10.5281/zenodo.20817596">doi:10.5281/zenodo.20817596</a></li>
+    <li>Aielli, G. P. (2013). Dynamic conditional correlation: on properties and estimation. <em>Journal of Business and Economic Statistics</em> 31, 282–299.</li>
+    <li>De Nard, G., O. Ledoit and M. Wolf (2021). Factor models for portfolio selection in large dimensions. <em>Journal of Financial Econometrics</em> 19, 236–257.</li>
+    <li>Engle, R. F. (2002). Dynamic conditional correlation. <em>Journal of Business and Economic Statistics</em> 20, 339–350. <a href="https://doi.org/10.1198/073500102288618487">doi:10.1198/073500102288618487</a></li>
+    <li>Lewandowski, D., D. Kurowicka and H. Joe (2009). Generating random correlation matrices based on vines and extended onion method. <em>Journal of Multivariate Analysis</em> 100, 1989–2001. <a href="https://doi.org/10.1016/j.jmva.2009.04.008">doi:10.1016/j.jmva.2009.04.008</a></li>
+    <li>Newey, W. K. and K. D. West (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. <em>Econometrica</em> 55, 703–708. <a href="https://doi.org/10.2307/1913610">doi:10.2307/1913610</a></li>
+  </ol>
+</section>
+
+<section id="author">
+  <span class="eyebrow e-indigo">Author</span>
+  <h2>Developer and citation</h2>
+  <div class="card t-indigo">
+    <div class="author"><div class="avatar">MR</div>
+      <div><b>Dr Merwan Roudane</b><br>
+        <a href="mailto:merwanroudane920@gmail.com">merwanroudane920@gmail.com</a> · <a href="https://github.com/merwanroudane">github.com/merwanroudane</a><br>
+        <a href="https://github.com/merwanroudane/dscc">Repository</a> · <a href="https://pypi.org/project/dscc/">PyPI</a> · <a href="https://doi.org/10.1093/ectj/utag017">Paper</a> ·
+        Other packages: <a href="https://cran.r-project.org/package=QuantileOnQuantile">QuantileOnQuantile</a>, <a href="https://cran.r-project.org/package=mqqr">mqqr</a>, <a href="https://cran.r-project.org/package=qqkrls">qqkrls</a>, <a href="https://cran.r-project.org/package=mqqcause">mqqcause</a> (CRAN)</div></div>
+<pre><code class="language-plaintext" id="bib">@software{roudane_dscc,
+  author  = {Roudane, Merwan},
+  title   = {{dscc}: Dynamic Spectral Conditional Correlations in Python},
+  year    = {2026},
+  url     = {https://github.com/merwanroudane/dscc},
+  version = {__VERSION__}
+}</code></pre>
+    <p>Please also cite Abadir and Rockinger (2026) and Abadir (2023).</p>
+  </div>
+</section>
+</main>
+<footer>Developed and maintained by Dr Merwan Roudane · © 2026 · MIT Licence · dscc v__VERSION__ · updated __DATE__</footer>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  renderMathInElement(document.body, {delimiters: [{left: "$$", right: "$$", display: true}, {left: "\\(", right: "\\)", display: false}]});
+  hljs.highlightAll();
+  document.querySelectorAll("pre").forEach(function (p) {
+    var b = document.createElement("button"); b.className = "copy"; b.textContent = "Copy";
+    b.onclick = function () { navigator.clipboard.writeText(p.innerText.replace(/Copy$/, "").trim()); b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1200); };
+    p.appendChild(b);
+  });
+  document.querySelectorAll("button.copy[data-copy]").forEach(function (b) {
+    b.onclick = function () { navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1200); };
+  });
+});
+</script>
+</body>
+</html>

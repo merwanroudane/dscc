@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Dr Merwan Roudane", email = "merwanroudane920@gmail.com" }]
+maintainers = [{ name = "Dr Merwan Roudane", email = "merwanroudane920@gmail.com" }]
 keywords = ["DSCC", "DCC", "multivariate GARCH", "volatility", "correlation", "elliptope", "portfolio", "econometrics"]
 classifiers = [
   "Programming Language :: Python :: 3",

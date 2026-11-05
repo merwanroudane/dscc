@@ -3,6 +3,9 @@
 Implements Abadir and Rockinger (2026, Econometrics Journal,
 doi:10.1093/ectj/utag017) and the explicit minimal representation of variance
 matrices of Abadir (2023, Econometrics Journal 26, 88-104, doi:10.1093/ectj/utac023).
+
+Developed and maintained by Dr Merwan Roudane <merwanroudane920@gmail.com>,
+https://github.com/merwanroudane/dscc
 """
 from ._filters import dsh_filter, g_abs
 from ._model import DSCC, DSCCForecast, DSCCResults, default_start, param_names

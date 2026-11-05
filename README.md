@@ -14,9 +14,9 @@ estimation, multistep forecasts, the elliptope-coverage benchmark, a DCC baselin
 complete minimum-variance portfolio evaluation, with tables and figures ready for a
 journal.
 
+🧑‍💻 **Developed by Dr Merwan Roudane** · merwanroudane920@gmail.com · https://github.com/merwanroudane
 📖 **Documentation:** https://merwanroudane.github.io/dscc/
 📦 **PyPI:** https://pypi.org/project/dscc/
-🧑‍💻 **Author:** Dr Merwan Roudane · merwanroudane920@gmail.com · https://github.com/merwanroudane
 
 ---
 
@@ -407,9 +407,9 @@ The complete list, with measured effects, is in [docs/methods.md](docs/methods.m
 ```
 Please also cite Abadir and Rockinger (2026), doi:10.1093/ectj/utag017, and Abadir (2023), doi:10.1093/ectj/utac023.
 
-## 16. Author and licence
+## 16. Developer and licence
 
-**Dr Merwan Roudane**
+Developed and maintained by **Dr Merwan Roudane**.
 📧 merwanroudane920@gmail.com
 🔗 https://github.com/merwanroudane
 

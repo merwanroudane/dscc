@@ -95,6 +95,10 @@ def main(csv=None, months=60, out="results", sim_T=400_000, n_starts=1, refit_ev
     print("\ncomputing time per model (s):", {k: round(v) for k, v in bt.timing.items()})
     dscc.save_figure(dscc.plot_wealth(bt), str(out / "fig4_wealth"))
     bt.daily.to_csv(out / "oos_daily_returns.csv")
+    bt.performance_table().to_csv(out / "table2_performance.csv")
+    bt.pairwise().to_csv(out / "table3_pairwise.csv", index=False)
+    bt.turnover_table().to_csv(out / "table4_turnover.csv")
+    bt.covariance_table().to_csv(out / "table56_covariance.csv")
     return fits, bt
 
 
