@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dscc"
+version = "0.1.0"
+description = "Dynamic Spectral Conditional Correlations (DSCC) and dynamic spectral heteroskedasticity (DSH) models: estimation, forecasting, elliptope coverage and minimum-variance portfolios"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Dr Merwan Roudane", email = "merwanroudane920@gmail.com" }]
+keywords = ["DSCC", "DCC", "multivariate GARCH", "volatility", "correlation", "elliptope", "portfolio", "econometrics"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = ["numpy>=1.22", "scipy>=1.9", "pandas>=1.4", "matplotlib>=3.5"]
+
+[project.optional-dependencies]
+interactive = ["plotly>=5"]
+fast = ["numba>=0.57"]
+test = ["pytest>=7"]
+
+[project.urls]
+Homepage = "https://merwanroudane.github.io/dscc/"
+Documentation = "https://merwanroudane.github.io/dscc/"
+Repository = "https://github.com/merwanroudane/dscc"
+Issues = "https://github.com/merwanroudane/dscc/issues"
+Paper = "https://doi.org/10.1093/ectj/utag017"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dscc"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

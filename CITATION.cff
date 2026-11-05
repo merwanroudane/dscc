@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite both the package and the original articles."
+title: "dscc: Dynamic Spectral Conditional Correlations in Python"
+version: 0.1.0
+date-released: 2026-11-05
+license: MIT
+authors:
+  - family-names: Roudane
+    given-names: Merwan
+    email: merwanroudane920@gmail.com
+repository-code: "https://github.com/merwanroudane/dscc"
+keywords: [DSCC, DCC, multivariate volatility, correlation, elliptope, portfolio]
+references:
+  - type: article
+    title: "Dynamic Spectral Conditional Correlations"
+    authors:
+      - family-names: Abadir
+        given-names: Karim M.
+      - family-names: Rockinger
+        given-names: Michael
+    journal: "Econometrics Journal"
+    year: 2026
+    doi: "10.1093/ectj/utag017"
+  - type: article
+    title: "Explicit minimal representation of variance matrices, and its implication for dynamic volatility models"
+    authors:
+      - family-names: Abadir
+        given-names: Karim M.
+    journal: "Econometrics Journal"
+    volume: 26
+    start: 88
+    end: 104
+    year: 2023
+    doi: "10.1093/ectj/utac023"
