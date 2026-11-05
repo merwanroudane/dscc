@@ -36,7 +36,7 @@ journal.
 13. [Limitations](#13-limitations)
 14. [References](#14-references)
 15. [Citation](#15-citation)
-16. [Author and licence](#16-author-and-licence)
+16. [Developer and licence](#16-developer-and-licence)
 
 ---
 
