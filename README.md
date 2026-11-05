@@ -402,7 +402,7 @@ The complete list, with measured effects, is in [docs/methods.md](docs/methods.m
   title   = {{dscc}: Dynamic Spectral Conditional Correlations in Python},
   year    = {2026},
   url     = {https://github.com/merwanroudane/dscc},
-  version = {0.1.0}
+  version = {0.1.1}
 }
 ```
 Please also cite Abadir and Rockinger (2026), doi:10.1093/ectj/utag017, and Abadir (2023), doi:10.1093/ectj/utac023.

@@ -29,7 +29,7 @@ from .backtest import DCCForecaster, DSCCForecaster, EqualWeight, SampleCovForec
 from .dcc import DCC
 from .portfolio import gmv_weights
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "Dr Merwan Roudane"
 __email__ = "merwanroudane920@gmail.com"
 

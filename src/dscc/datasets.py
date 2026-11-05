@@ -41,10 +41,13 @@ def read_french_csv(text_or_path) -> pd.DataFrame:
 
     Values are kept in percent, as published. Missing values (-99.99 / -999) become NaN.
     """
-    if isinstance(text_or_path, (str, Path)) and Path(str(text_or_path)).exists():
-        text = Path(text_or_path).read_text(encoding="latin-1")
-    else:
-        text = str(text_or_path)
+    text = str(text_or_path)
+    if isinstance(text_or_path, Path) or ("\n" not in text and len(text) < 1024):
+        try:
+            if Path(text).is_file():
+                text = Path(text).read_text(encoding="latin-1")
+        except OSError:          # not a usable path: treat the argument as CSV text
+            pass
     lines = text.splitlines()
     # header row: first field empty (library files) or "date" (authors' CSV)
     start = next(i for i, ln in enumerate(lines)
