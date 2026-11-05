@@ -46,6 +46,27 @@ def md_table_html(path: Path) -> str:
     return f'<div class="tw"><table><thead><tr>{th}</tr></thead><tbody>{tr}</tbody></table></div>'
 
 
+def parse_printed_table(block: str, index: bool) -> pd.DataFrame:
+    """Parse a whitespace-aligned pandas table printed in the example log.
+
+    Columns that pandas elided as '...' in the printout are dropped, never invented.
+    """
+    lines = [l for l in block.splitlines()[1:] if l.strip() and not l.startswith("[")]
+    head = [h for h in re.split(r"\s{2,}", lines[0].strip()) if h != "..."]   # names may contain one space
+    rows = [[t for t in l.split() if t != "..."] for l in lines[1:]]
+    if index:
+        df = pd.DataFrame([r[1:] for r in rows], index=[r[0] for r in rows], columns=head)
+    else:
+        df = pd.DataFrame(rows, columns=head)
+
+    def num(c):
+        try:
+            return pd.to_numeric(c)
+        except (ValueError, TypeError):
+            return c
+    return df.apply(num)
+
+
 def log_block(log: str, start: str, stop_markers) -> str:
     i = log.find(start)
     if i < 0:
@@ -114,11 +135,23 @@ def example_section() -> str:
                      '       dscc.DSCCForecaster("egarch", init="average")]\n'
                      "bt = dscc.rolling_backtest(factors, fcs, n_months=60)\n"
                      "bt.performance_table(); bt.pairwise(); bt.turnover_table(); bt.covariance_table()"))
-    for start, stop in (("Table 2 --", ["Table 3 --"]), ("Table 3 --", ["Table 4 --"]),
-                        ("Table 4 --", ["Tables 5-6 --"]), ("Tables 5-6 --", ["computing time"])):
+    for start, stop, csv, idx in (("Table 2 --", ["Table 3 --"], "table2_performance.csv", True),
+                                  ("Table 3 --", ["Table 4 --"], "table3_pairwise.csv", False),
+                                  ("Table 4 --", ["Tables 5-6 --"], "table4_turnover.csv", True),
+                                  ("Tables 5-6 --", ["computing time"], "table56_covariance.csv", True)):
         blk = log_block(log, start, stop)
-        if blk:
-            parts.append(pre(blk, "plaintext", out=True))
+        if not blk:
+            continue
+        title = blk.splitlines()[0].replace("--", "—")
+        parts.append(f"<p><b>{html.escape(title)}</b></p>")
+        if (RES / csv).exists():
+            df = pd.read_csv(RES / csv, index_col=0 if idx else None)
+        else:
+            df = parse_printed_table(blk, idx)
+        parts.append(table_html(df, index=idx, dec=3))
+    t = log_block(log, "computing time", ["\n\n"])
+    if t:
+        parts.append(f'<p class="note">{html.escape(t.strip())}</p>')
     parts.append(fig("fig4_wealth", "Figure 4 — value of 100 invested at the start of the evaluation period (log scale)."))
     parts.append('<div class="note">The portfolio is formed from the five factor portfolios themselves. The paper\'s '
                  "1,000-stock exercise needs CRSP data (restricted) and the NL-DCC residual block of De Nard, Ledoit "

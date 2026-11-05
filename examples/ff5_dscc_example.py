@@ -31,7 +31,8 @@ from dscc import elliptope as el
 
 def main(csv=None, months=60, out="results", sim_T=400_000, n_starts=1, refit_every=12):
     out = Path(out); out.mkdir(parents=True, exist_ok=True)
-    pd.set_option("display.width", 120)
+    pd.set_option("display.width", 200)
+    pd.set_option("display.max_columns", None)
 
     # ------------------------------------------------------------ 1. data
     ff = dscc.datasets.load_ff5_daily(path=csv, start="1980-01-02", end="2022-03-31")
